@@ -15,6 +15,7 @@
 // Global variables
 unsigned int width;
 unsigned int height;
+unsigned int rate;
 NSTask *task;
 ElgatoUVCDevice* device  = nullptr;;
 
@@ -91,10 +92,12 @@ void signalHandler(int signal) {
 
 void executeMainTask() {
 	bool active = false;
-    EGAVResult res = device->IsInputActive(&active);
+    VIDEO_STREAM_INFO videoInfo{};
+	memset(&videoInfo, 0, sizeof(videoInfo));
+    EGAVResult res = device->GetVideoStreamInfo(videoInfo);
     if (res.Succeeded())
     {
-        if (!active) {
+        if (videoInfo.vRes == 0 || videoInfo.hRes == 0) {
             LogDebug(@"NOT Active");
 
             if (is_ffplay_running()) {
@@ -117,7 +120,7 @@ void setupPeriodicTask() {
 
     dispatch_source_set_timer(timer,
                               dispatch_time(DISPATCH_TIME_NOW, 0),
-                              60 * NSEC_PER_SEC, // Execute every 60 seconds
+                              10 * NSEC_PER_SEC, // Execute every 60 seconds
                               1 * NSEC_PER_SEC); // Allow a 1-second leeway
 
     dispatch_source_set_event_handler(timer, ^{
