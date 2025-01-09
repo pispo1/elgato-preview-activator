@@ -16,63 +16,52 @@
 unsigned int width;
 unsigned int height;
 unsigned int rate;
-NSTask *task;
+NSTask *taskVideoAudio;
 ElgatoUVCDevice* device  = nullptr;;
 
-// Check if FFPlay is running
-int is_ffplay_running() {
-    return task != nil;
+// Check if AVICapture is running
+int is_avicapture_running() {
+    return taskVideoAudio != nil;
 }
 
-// Launch FFPlay
-void launchFFPlay() {
-    task = [[NSTask alloc] init];
-    task.launchPath = @"./ffplay";  // Ensure correct path to ffplay
+// Launch AVI Capture
+void launchAVICapture() {
+    taskVideoAudio = [[NSTask alloc] init];
+    taskVideoAudio.launchPath = @"./AVICapture";  // Ensure correct path to main
 
     NSString *videoSize = [NSString stringWithFormat:@"%ldx%ld", (long)width, (long)height];
 
-    // Set the arguments for ffplay
-    task.arguments = @[
-        @"-f", @"avfoundation",
-        @"-framerate", @"60",
+    // Set the arguments for main
+    taskVideoAudio.arguments = @[
+        @"-framerate", [NSString stringWithFormat:@"%u", rate],
         @"-video_size", videoSize,
-        @"-pixel_format", @"nv12",
-        @"-fast",
-        @"-i", @"1", // Input device or stream (e.g., device number for AVFoundation)
-        @"-noautorotate",
-        @"-an",
-        @"-avioflags", @"direct",
-        @"-fflags", @"nobuffer",
-        @"-flags", @"low_delay",
-        @"-sync", @"ext",
-        @"-vf", @"setpts=0",
-        @"-tune", @"zerolatency",
-        @"-v", @"quiet",
+        @"-iv", @"Game Capture HD60 X", 
+        @"-ia", @"Game Capture HD60 X", // Input device or stream (e.g., device number for AVFoundation)
         @"-fs" // Fullscreen
     ];
     
     // Set a termination handler
-    task.terminationHandler = ^(NSTask *task) {
-        if (task.terminationStatus == 123) {
+    taskVideoAudio.terminationHandler = ^(NSTask *task) {
+        if (task.terminationStatus == 15) {
             // Handle the case where you explicitly terminated the task
-            LogInfo(@"ffplay was terminated by the program with status 123.");
+            LogInfo(@"avicapture was terminated by the program with status 15.");
         } else {
             // Handle other termination statuses
-            LogError(@"ffplay was terminated with status: %d", task.terminationStatus);
+            LogError(@"avicapture was terminated with status: %d", task.terminationStatus);
             // If task was not killed by your program, relaunch it
-            LogInfo(@"Relaunching ffplay...");
-            launchFFPlay(); // Recursively relaunch ffplay
+            LogInfo(@"Relaunching avicapture...");
+            launchAVICapture(); // Recursively relaunch avicapture
         }
     };
     
     // Launch the task
-    [task launch];
+    [taskVideoAudio launch];
 }
 
 void cleanupTask() {
-    if (task) {
-        [task terminate];
-        task = nil;  // Make sure to nil out the task after termination
+    if (taskVideoAudio) {
+        [taskVideoAudio terminate];
+        taskVideoAudio = nil;  // Make sure to nil out the task after termination
     }
 }
 
@@ -81,7 +70,7 @@ void signalHandler(int signal) {
     // Log the signal received
     LogInfo(@"Received signal %d, cleaning up...", signal);
 
-    if(is_ffplay_running()){
+    if(is_avicapture_running()){
         cleanupTask();
     }
     // Exit the program gracefully
@@ -98,17 +87,14 @@ void executeMainTask() {
     if (res.Succeeded())
     {
         if (videoInfo.vRes == 0 || videoInfo.hRes == 0) {
-            LogDebug(@"NOT Active");
-
-            if (is_ffplay_running()) {
+            if (is_avicapture_running()) {
+                LogInfo(@"Killing avicapture...");
                 cleanupTask();
             }
         } else {    
-            LogDebug(@"ACTIVE");
-
-            if (!is_ffplay_running()) {
-                LogInfo(@"Launching ffplay...");
-                launchFFPlay();
+            if (!is_avicapture_running()) {
+                LogInfo(@"Launching avicapture...");
+                launchAVICapture();
             }
         }
     }
@@ -124,29 +110,10 @@ void setupPeriodicTask() {
                               1 * NSEC_PER_SEC); // Allow a 1-second leeway
 
     dispatch_source_set_event_handler(timer, ^{
-        LogDebug(@"Execute Main (TIMER)");
         executeMainTask();
     });
 
     dispatch_resume(timer);
-}
-
-static void wakeNotificationCallback(CFNotificationCenterRef center,
-                                     void *observer,
-                                     CFStringRef name,
-                                     const void *object,
-                                     CFDictionaryRef userInfo) {
-    LogDebug(@"Execute Main (WAKEUP)");
-    executeMainTask(); // Call your existing task function
-}
-
-void setupWakeNotification() {
-    CFNotificationCenterAddObserver(CFNotificationCenterGetDistributedCenter(),
-                                    NULL,
-                                    wakeNotificationCallback,
-                                    CFSTR("com.apple.screensaver.didWake"),
-                                    NULL,
-                                    CFNotificationSuspensionBehaviorDeliverImmediately);
 }
 
 int main() {
@@ -158,6 +125,7 @@ int main() {
 
         width = 2560;   // Desired resolution width
         height = 1440;  // Desired resolution height
+        rate = 60;
 
         const EGAVDeviceID& selectedDeviceID = deviceIDHD60X; 
         std::shared_ptr<EGAVHIDInterface> hid = std::make_shared<EGAVHID>();
@@ -170,8 +138,7 @@ int main() {
         {
             device = new ElgatoUVCDevice(hid, IsNewDeviceType(selectedDeviceID));
             
-            // Set up wake notification and periodic task
-            setupWakeNotification();
+            // Set up periodic task
             setupPeriodicTask();
 
             // Keep the application running to respond to events
