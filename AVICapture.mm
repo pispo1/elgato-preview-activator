@@ -204,9 +204,9 @@ void allowSleep() {
             CMFormatDescriptionRef formatDescription = format.formatDescription;
             CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription);
             FourCharCode pixelFormat = CMFormatDescriptionGetMediaSubType(formatDescription);
-            
+
             if (dimensions.width == width && dimensions.height == height && pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange) {
-                NSLog(@"Choosing format:  %@", videoSize);
+                NSLog(@"Choosing format: ");
                 [videoDevice setActiveFormat:format];
                 break;
             }
@@ -228,7 +228,7 @@ void allowSleep() {
             }
         }
 
-        [videoDevice unlockForConfiguration];
+        //[videoDevice unlockForConfiguration];
     } else {
         std::cerr << "Failed to lock video device configuration." << std::endl;
         return FALSE;
@@ -276,20 +276,6 @@ void allowSleep() {
     }
     [captureSession addInput:audioInput];
 
-    // Configure the video output for NV12 partial range and Rec. 709
-    AVCaptureVideoDataOutput *videoOutput = [[AVCaptureVideoDataOutput alloc] init];
-    videoOutput.videoSettings = @{
-        (NSString *)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange)//,
-        //(NSString *)kCVImageBufferYCbCrMatrixKey : (__bridge NSString *)kCVImageBufferYCbCrMatrix_ITU_R_709_2
-    };
-    
-    if ([captureSession canAddOutput:videoOutput]) {
-        [captureSession addOutput:videoOutput];
-    } else {
-        NSLog(@"Cannot add video output.");
-        return FALSE;
-    }
-    
     [captureSession commitConfiguration];
 
     // Configure video preview
@@ -327,7 +313,7 @@ int main(int argc, const char * argv[]) {
     preventSleep();
 
     NSInteger framerate = 25;
-    NSString *videoSize = @"1920x1080";
+    NSString *videoSize = @"2560x1440";
     NSString *inputVideoDevice = @"Game Capture HD60 X";
     NSString *inputAudioDevice = @"Game Capture HD60 X";
     BOOL fullscreen = NO;
