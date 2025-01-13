@@ -213,7 +213,7 @@ void allowSleep() {
         }
 
         // Set the frame rate to 25
-        CMTime preferredRate = CMTimeMake(1, 60); // 25
+        CMTime preferredRate = CMTimeMake(1, 25); // 25
         
         // Check if the frame rate is supported on the selected format
         for (AVCaptureDeviceFormat *format in videoDevice.formats) {
@@ -288,8 +288,14 @@ void allowSleep() {
     [contentView setLayer:previewLayer];
     [contentView setWantsLayer:YES];
 
+    // Configure audio preview
+    AVCaptureAudioPreviewOutput *previewOutput = [[AVCaptureAudioPreviewOutput alloc] init];
+    [previewOutput setVolume:1.0f];
+    [captureSession addOutput:previewOutput];
+
     // Start the capture session
     [captureSession startRunning];
+    [videoDevice unlockForConfiguration];
     return TRUE;
 }
 
